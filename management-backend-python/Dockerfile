@@ -4,7 +4,6 @@ WORKDIR /app
 
 COPY . /app
 
-# Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir fastapi uvicorn python-dotenv sqlalchemy asyncpg databases[postgresql] pydantic
 
 EXPOSE 5001

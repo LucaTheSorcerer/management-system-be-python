@@ -11,5 +11,5 @@ engine = create_async_engine(DATABASE_URL, echo=True)
 # This will be used to create all your models
 Base = declarative_base()
 
-# Session maker for database sessions
+# Session maker for db sessions
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, class_=AsyncSession)
