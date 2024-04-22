@@ -1,9 +1,9 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, Table, Enum
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.ext.declarative import declarative_base
+# from sqlalchemy.ext.declarative import declarative_base
 import enum
-
+from sqlalchemy.orm import declarative_base, Mapped, mapped_column
 Base = declarative_base()
 
 
@@ -20,12 +20,23 @@ class Skill(Base):
     skill_name = Column(String, nullable=False)
 
 
-# Define the Department model
+# # Define the Department model
+# class Department(Base):
+#     __tablename__ = 'departments'
+#
+#     id = Column(Integer, primary_key=True)
+#     department_name = Column(String, nullable=False)
+
 class Department(Base):
     __tablename__ = 'departments'
 
-    id = Column(Integer, primary_key=True)
-    department_name = Column(String, nullable=False)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    department_name: Mapped[str] = Column(String, nullable=False)
+    version: Mapped[int] = Column(Integer, nullable=False, default=0)
+
+    __mapper_args__ = {
+        "version_id_col": version  # SQLAlchemy manages this field for optimistic locking
+    }
 
 
 # Association table for the many-to-many relationship between User and Skill

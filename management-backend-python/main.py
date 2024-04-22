@@ -5,8 +5,10 @@ from sqlalchemy.orm import joinedload
 from database import SessionLocal
 from entities.models import Department, User  # Ensure import paths are correct
 from pydantic import BaseModel
-from typing import List
+from typing import List, Dict
 from DepartmentService import DepartmentService
+from sqlalchemy.orm import selectinload
+from sqlalchemy.exc import NoResultFound
 
 app = FastAPI()
 
@@ -56,38 +58,54 @@ async def get_department(department_id: int, db: AsyncSession = Depends(get_db))
         raise HTTPException(status_code=404, detail=str(e))
 
 
+
 # @app.put("/departments/{department_id}", response_model=DepartmentRead)
 # async def update_department(department_id: int, department_data: DepartmentUpdate, db: AsyncSession = Depends(get_db)):
 #     async with db as session:
-#         stmt = select(Department).options(joinedload(Department.employees)).where(Department.id == department_id)
+#         stmt = select(Department).where(Department.id == department_id)
 #         result = await session.execute(stmt)
 #         department = result.scalars().first()
 #         if not department:
 #             raise HTTPException(status_code=404, detail="Department not found")
 #
 #         department.department_name = department_data.department_name
+#         session.add(department)
 #         await session.commit()
-#         return department
+#         await session.refresh(department)  # Ensure data is reloaded after commit if needed
+#
+#         # Manual conversion to dictionary if Pydantic's orm_mode isn't sufficient
+#         department_dict = {
+#             "id": department.id,
+#             "department_name": department.department_name
+#         }
+#         return department_dict
+
+
+
 @app.put("/departments/{department_id}", response_model=DepartmentRead)
 async def update_department(department_id: int, department_data: DepartmentUpdate, db: AsyncSession = Depends(get_db)):
-    async with db as session:
-        stmt = select(Department).where(Department.id == department_id)
-        result = await session.execute(stmt)
-        department = result.scalars().first()
-        if not department:
-            raise HTTPException(status_code=404, detail="Department not found")
+    async with db.begin():  # This will manage the transaction implicitly
+        try:
+            stmt = select(Department).where(Department.id == department_id).with_for_update()
+            result = await db.execute(stmt)
+            department = result.scalars().one()  # This will automatically raise NoResultFound if not found
 
-        department.department_name = department_data.department_name
-        session.add(department)
-        await session.commit()
-        await session.refresh(department)  # Ensure data is reloaded after commit if needed
+            department.department_name = department_data.department_name
 
-        # Manual conversion to dictionary if Pydantic's orm_mode isn't sufficient
-        department_dict = {
-            "id": department.id,
-            "department_name": department.department_name
-        }
-        return department_dict
+            # The transaction will commit at the end of the 'async with' block if no exceptions are raised
+            department_dict = {
+                "id": department.id,
+                "department_name": department.department_name
+            }
+            return department_dict
+        except NoResultFound:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Department not found")
+        except Exception as e:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+
+
 
 @app.get("/departments/", response_model=List[DepartmentRead])
 async def get_all_departments(db: AsyncSession = Depends(get_db)):
